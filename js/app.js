@@ -1,10 +1,11 @@
 // Yogle: screens, camera loop and game flow.
 import { features } from './angles.js';
 import { matchPose, visibleFeatures, HoldSession, CONFIG, shareText } from './scoring.js';
-import { utcDateString, dayNumber, entryFor } from './daily.js';
+import { utcDateString, dayNumber, entryFor, addDays, EPOCH } from './daily.js';
 import { Figure3D, drawSkeleton2D, ghostPoints, BONE_FEATURE } from './figure.js';
 import { Tracker } from './tracker.js';
 import * as store from './storage.js';
+import * as api from './api.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -30,7 +31,7 @@ function partLabel(f) {
 }
 
 function show(screen) {
-  for (const s of ['home', 'play', 'result']) $('screen-' + s).hidden = s !== screen;
+  for (const s of ['home', 'archive', 'play', 'result']) $('screen-' + s).hidden = s !== screen;
   document.querySelector('.top').hidden = screen === 'play';
   document.querySelector('.foot').hidden = screen === 'play';
   if (screen !== 'play') window.scrollTo(0, 0);
@@ -69,8 +70,13 @@ async function init() {
   $('btn-start').addEventListener('click', () => begin(todayPose, false));
   $('btn-practice').addEventListener('click', () => begin(poseById(sel.value), true));
   $('btn-quit').addEventListener('click', () => finish(true));
-  $('btn-home').addEventListener('click', () => { show('home'); renderHome(); });
-  $('btn-again').addEventListener('click', () => begin(game.pose, game.practice));
+  $('btn-home').addEventListener('click', () => { show('home'); renderHome(); refreshTodayBoard(); });
+  $('btn-again').addEventListener('click', () => begin(game.pose, game.practice, game.day));
+  $('btn-archive').addEventListener('click', openArchive);
+  $('btn-archive-back').addEventListener('click', () => { show('home'); renderHome(); });
+  $('btn-archive-play').addEventListener('click', () => begin(poseById(archiveSel.pose), false, archiveSel.day));
+  $('submit-form').addEventListener('submit', (e) => { e.preventDefault(); submitScore(); });
+  api.loadConfig().then(refreshTodayBoard);
   $('btn-share').addEventListener('click', share);
   if (params.get('pose') && poseById(params.get('pose'))) { sel.value = params.get('pose'); $('practice').open = true; }
 }
@@ -92,7 +98,7 @@ function renderHome() {
 const cap = (s) => s[0].toUpperCase() + s.slice(1);
 
 // ---------- game ----------
-async function begin(pose, practice) {
+async function begin(pose, practice, day = null) {
   if (!store.getFlag('agreed')) {
     const dlg = $('disclaimer');
     const ok = await new Promise((resolve) => {
@@ -103,7 +109,7 @@ async function begin(pose, practice) {
     store.setFlag('agreed');
   }
   show('play');
-  game = { pose, practice, phase: 'loading', session: null, okSince: null, start: null, raf: 0, stream: null,
+  game = { pose, practice, day: practice ? null : (day || today), phase: 'loading', session: null, okSince: null, start: null, raf: 0, stream: null,
     frames: [], snap: null, snapBest: -1, snapT: 0, lastHint: '', lastHintT: 0, ended: false, switching: false };
   setStatus('Starting the camera…');
   $('match-threshold').style.left = CONFIG.MATCH_THRESHOLD + '%';
@@ -282,17 +288,20 @@ function finish(quit) {
   if (!s || !s.samples.length) { show('home'); renderHome(); return; }
   const res = s.result();
   game.result = res;
-  if (!game.practice && res.score > 0) store.recordDaily(today, { pose: game.pose.id, score: res.score, grid: res.grid });
-  $('result-title').textContent = game.practice ? `Practice: ${game.pose.name}` : `Yogle #${dayNumber(today)}: ${game.pose.name}`;
+  const replay = !game.practice && game.day !== today;
+  if (!game.practice && !replay && res.score > 0) store.recordDaily(today, { pose: game.pose.id, score: res.score, grid: res.grid });
+  if (replay && res.score > 0) store.recordReplay(game.day, { pose: game.pose.id, score: res.score });
+  $('result-title').textContent = game.practice ? `Practice: ${game.pose.name}` : `Yogle #${dayNumber(game.day)}${replay ? ' (replay)' : ''}: ${game.pose.name}`;
   $('result-score').textContent = res.score;
   $('result-detail').textContent = `Accuracy ${res.accuracy} · Stillness ${res.stability} · Held ${res.held.toFixed(1)} of ${CONFIG.HOLD_SECONDS} s` + (quit && res.completion < 1 ? ' (stopped early)' : '');
-  game.share = shareText({ dayNumber: dayNumber(today), poseName: game.pose.name, score: res.score, grid: res.grid, practice: game.practice });
+  game.share = shareText({ dayNumber: dayNumber(game.day ?? today), replay, poseName: game.pose.name, score: res.score, grid: res.grid, practice: game.practice });
   $('result-grid').textContent = game.share.split('\n').slice(1).join('\n');
   $('share-msg').textContent = '';
   if (game.snap) {
     const url = game.snap.toDataURL('image/jpeg', 0.85);
     $('snapshot').src = url; $('snapshot-save').href = url; $('snapshot-wrap').hidden = false;
   } else $('snapshot-wrap').hidden = true;
+  prepareSubmit(res, replay);
   show('result');
 }
 
@@ -302,6 +311,121 @@ async function share() {
     if (navigator.share) { await navigator.share({ text }); $('share-msg').textContent = 'Shared!'; return; }
   } catch (e) { if (e.name === 'AbortError') return; }
   try { await navigator.clipboard.writeText(text); $('share-msg').textContent = 'Copied to clipboard.'; } catch { $('share-msg').textContent = 'Copy the grid above to share it.'; }
+}
+
+// ---------- leaderboard ----------
+const fmt = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+
+function renderBoard(listEl, msgEl, data, emptyText) {
+  listEl.replaceChildren();
+  if (!data) { if (msgEl) msgEl.textContent = 'Leaderboard unavailable right now.'; return; }
+  const rows = [...data.top];
+  if (data.you) rows.push({ gap: true }, data.you);
+  for (const r of rows) {
+    const li = document.createElement('li');
+    if (r.gap) { li.className = 'gap'; li.textContent = '…'; listEl.append(li); continue; }
+    if (r.you) li.className = 'me';
+    const rank = document.createElement('span'); rank.className = 'rank'; rank.textContent = r.rank;
+    const name = document.createElement('span'); name.className = 'name'; name.textContent = r.you ? `${r.name} (you)` : r.name;
+    const score = document.createElement('span'); score.className = 'score'; score.textContent = fmt(r.score);
+    const det = document.createElement('span'); det.className = 'detail';
+    det.textContent = `Pose ${fmt(r.accuracy)} · Stillness ${fmt(r.stability)} · Held ${fmt(r.held)}s` + (r.attempts > 1 ? ` · best of ${r.attempts}` : '');
+    li.append(rank, name, score, det);
+    listEl.append(li);
+  }
+  if (msgEl) msgEl.textContent = data.top.length ? `${data.players} player${data.players === 1 ? '' : 's'}` : emptyText;
+}
+
+async function refreshTodayBoard() {
+  if (!api.enabled()) { $('today-board-panel').hidden = true; return; }
+  $('today-board-panel').hidden = false;
+  try { renderBoard($('today-board'), $('today-board-msg'), await api.board(today), 'No scores yet today. Be the first!'); }
+  catch { renderBoard($('today-board'), $('today-board-msg'), null); }
+}
+
+function prepareSubmit(res, replay) {
+  const form = $('submit-form');
+  $('result-board-wrap').hidden = true;
+  form.hidden = game.practice || !api.enabled() || res.held <= 0;
+  if (form.hidden) return;
+  $('submit-label').textContent = replay ? 'Your name for this day\'s "played later" board' : "Your name for today's leaderboard";
+  $('player-name').value = api.savedName();
+  $('btn-submit').disabled = false;
+  $('submit-msg').textContent = replay ? "Replays never change the original day's board." : 'Only your name and scores are sent. Your best run counts.';
+  showResultBoard(replay).catch(() => {});
+}
+
+async function showResultBoard(replay, data) {
+  data ??= await api.board(game.day, replay);
+  $('result-board-title').textContent = replay ? `Played later: Yogle #${dayNumber(game.day)}` : "Today's leaderboard";
+  renderBoard($('result-board'), null, data, 'No scores yet.');
+  $('result-board-wrap').hidden = false;
+}
+
+async function submitScore() {
+  const name = $('player-name').value.trim();
+  if (!name) { $('submit-msg').textContent = 'Enter a name first.'; return; }
+  api.saveName(name);
+  $('btn-submit').disabled = true;
+  $('submit-msg').textContent = 'Sending…';
+  try {
+    const r = await api.submit({ day: game.day, pose: game.pose.id, name, result: game.result });
+    await showResultBoard(r.late, r.board);
+    $('submit-form').hidden = true;
+    $('share-msg').textContent = r.late ? 'Saved to the "played later" board.' : 'Saved to the leaderboard! Your best run today counts.';
+  } catch (e) {
+    $('submit-msg').textContent = e.message || 'Could not reach the leaderboard.';
+    $('btn-submit').disabled = false;
+  }
+}
+
+// ---------- archive ----------
+const archiveSel = { day: null, pose: null };
+let archiveFigure = null;
+
+async function openArchive() {
+  show('archive');
+  $('archive-day').hidden = true;
+  const list = $('archive-list');
+  list.replaceChildren();
+  const last = addDays(today, -1);
+  const days = [];
+  for (let d = last; d >= EPOCH; d = addDays(d, -1)) days.push(d);
+  if (!days.length) { list.innerHTML = '<li class="muted">No past days yet. Come back tomorrow.</li>'; return; }
+  let summary = {};
+  if (api.enabled()) { try { summary = (await api.days(EPOCH, last)).days; } catch { /* list still works offline */ } }
+  for (const d of days) {
+    const pose = poseById(entryFor(d, SCHED, LIB.poses).pose);
+    const mine = store.getDaily(d), replay = store.getReplay(d), sm = summary[d];
+    const li = document.createElement('li'), b = document.createElement('button');
+    b.type = 'button';
+    const nice = new Date(d + 'T12:00:00Z').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+    b.innerHTML = '<span class="a-day"></span><span class="a-you"></span><span class="a-sub"></span>';
+    b.querySelector('.a-day').textContent = `#${dayNumber(d)} · ${nice} · ${pose.name}`;
+    b.querySelector('.a-you').textContent = mine ? `${mine.score}` : replay ? `${replay.score} (replay)` : '';
+    b.querySelector('.a-sub').textContent = `Difficulty ${pose.difficulty.toFixed(1)}` + (sm?.players ? ` · ${sm.players} played on the day · top ${fmt(sm.top)}` : '') + (sm?.latePlayers ? ` · ${sm.latePlayers} later` : '');
+    b.addEventListener('click', () => openArchiveDay(d, pose));
+    li.append(b);
+    list.append(li);
+  }
+}
+
+async function openArchiveDay(d, pose) {
+  Object.assign(archiveSel, { day: d, pose: pose.id });
+  $('archive-day').hidden = false;
+  $('archive-daynum').textContent = `Yogle #${dayNumber(d)} · ${new Date(d + 'T12:00:00Z').toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}`;
+  $('archive-pose').textContent = pose.name;
+  $('archive-meta').textContent = `Difficulty ${pose.difficulty.toFixed(1)}/10 · ${cap(pose.focus)} · ${viewText(pose)}` + (pose.advanced ? ' · Advanced' : '');
+  archiveFigure ??= new Figure3D($('archive-figure'));
+  archiveFigure.set(pose, LIB.skeleton_landmarks);
+  $('archive-day').scrollIntoView({ block: 'start' });
+  for (const [late, list, msg] of [[false, 'archive-board', 'archive-board-msg'], [true, 'archive-late-board', 'archive-late-msg']]) {
+    $(list).replaceChildren();
+    if (!api.enabled()) { $(msg).textContent = 'Leaderboard not configured.'; continue; }
+    $(msg).textContent = 'Loading…';
+    try { renderBoard($(list), $(msg), await api.board(d, late), late ? 'Nobody has replayed this day yet.' : 'Nobody played this day.'); }
+    catch { renderBoard($(list), $(msg), null); }
+  }
 }
 
 init();
