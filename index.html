@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Yogle</title>
+  <meta name="description" content="One yoga pose a day. Match it in front of your camera, hold it for 10 seconds, share your score. Video never leaves your device.">
+  <meta name="theme-color" content="#14213d">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='12' r='7' fill='%23e4572e'/%3E%3Cpath d='M32 20v22M32 26l-18-10M32 26l18-10M32 42l-12 18M32 42l12 18' stroke='%2314213d' stroke-width='6' stroke-linecap='round' fill='none'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="top">
+    <h1 class="brand">Yogle</h1>
+    <p class="tagline">One pose a day. Match it. Hold it. Share it.</p>
+  </header>
+
+  <main id="main">
+    <!-- HOME -->
+    <section id="screen-home" class="screen" aria-labelledby="today-title">
+      <p class="daynum" id="daynum">Loading…</p>
+      <h2 id="today-title" class="pose-name">…</h2>
+      <p class="meta" id="today-meta"></p>
+      <p class="advanced-warning" id="advanced-warning" hidden>
+        <strong>Advanced pose.</strong> Only try this if you already practise it safely. Otherwise pick an easier pose in Practice.
+      </p>
+      <div class="figure-wrap">
+        <canvas id="figure" class="figure"></canvas>
+        <p class="hint" id="figure-caption">Drag to rotate · orange = left side, blue = right side</p>
+      </div>
+      <div class="actions">
+        <button id="btn-start" class="btn primary" type="button">Start today's pose</button>
+        <p class="done-today" id="done-today" hidden></p>
+      </div>
+
+      <details class="panel" id="setup">
+        <summary>How to set up your phone or laptop</summary>
+        <div class="setup-body">
+          <svg viewBox="0 0 320 150" role="img" aria-label="Phone propped upright on the floor about two to three metres away, with the whole body in view" class="setup-svg">
+            <line x1="0" y1="130" x2="320" y2="130" class="svg-floor"/>
+            <rect x="24" y="78" width="26" height="50" rx="4" class="svg-phone"/>
+            <rect x="50" y="96" width="14" height="34" class="svg-prop"/>
+            <path d="M52 92 L230 18 M52 104 L230 128" class="svg-view"/>
+            <circle cx="236" cy="34" r="9" class="svg-person"/>
+            <path d="M236 44 v42 M236 54 l-18 16 M236 54 l18 16 M236 86 l-12 40 M236 86 l12 40" class="svg-person-line"/>
+            <text x="110" y="146" class="svg-text">2–3 m</text>
+          </svg>
+          <ol>
+            <li>Prop your phone upright on the floor or a low shelf (lean it on a book). Laptop: tilt the screen so your feet are in view.</li>
+            <li>Step back 2–3 m until your <strong>whole body</strong>, including hands above your head, is on screen.</li>
+            <li>Use a clear, non-slip space about 2 m × 1 m. Good light helps; avoid a bright window behind you.</li>
+            <li>The figure shows which way to face: <strong>front</strong> = face the camera, <strong>side</strong> = turn side-on.</li>
+          </ol>
+        </div>
+      </details>
+
+      <details class="panel" id="practice">
+        <summary>Practice any pose</summary>
+        <label for="practice-select" class="label">Choose a pose (easiest first)</label>
+        <select id="practice-select" class="select"></select>
+        <button id="btn-practice" class="btn" type="button">Practice this pose</button>
+      </details>
+
+      <section class="panel stats" aria-label="Your stats" id="stats"></section>
+    </section>
+
+    <!-- PLAY -->
+    <section id="screen-play" class="screen" hidden aria-label="Pose game">
+      <div class="stage" id="stage">
+        <video id="video" playsinline muted></video>
+        <canvas id="overlay" class="overlay" aria-hidden="true"></canvas>
+        <div class="hud-top">
+          <p id="status" class="status" role="status" aria-live="polite">Loading…</p>
+        </div>
+        <div class="hud-target" aria-hidden="true">
+          <canvas id="mini-figure" class="mini-figure"></canvas>
+          <p id="mini-name" class="mini-name"></p>
+        </div>
+        <div class="hud-bottom">
+          <div class="meter" aria-label="Match">
+            <div class="meter-label"><span>Match</span><span id="match-val">–</span></div>
+            <div class="meter-bar"><div id="match-bar" class="meter-fill"></div><div class="meter-threshold" id="match-threshold"></div></div>
+          </div>
+          <div class="hold" aria-label="Hold timer">
+            <svg viewBox="0 0 44 44" class="ring"><circle cx="22" cy="22" r="19" class="ring-bg"/><circle cx="22" cy="22" r="19" class="ring-fg" id="hold-ring"/></svg>
+            <span id="hold-val" class="hold-val">0</span>
+          </div>
+          <button id="btn-quit" class="btn small" type="button">Stop</button>
+        </div>
+        <p class="perf" id="perf" hidden></p>
+      </div>
+    </section>
+
+    <!-- RESULT -->
+    <section id="screen-result" class="screen" hidden aria-labelledby="result-title">
+      <h2 id="result-title" class="result-title">Your score</h2>
+      <p class="big-score" id="result-score">0</p>
+      <p class="meta" id="result-detail"></p>
+      <pre class="grid" id="result-grid" aria-label="Result grid"></pre>
+      <div class="actions">
+        <button id="btn-share" class="btn primary" type="button">Share result</button>
+        <button id="btn-again" class="btn" type="button">Try again</button>
+        <button id="btn-home" class="btn" type="button">Home</button>
+      </div>
+      <p id="share-msg" class="share-msg" role="status" aria-live="polite"></p>
+      <figure class="snapshot" id="snapshot-wrap" hidden>
+        <img id="snapshot" alt="Your best moment">
+        <figcaption>Your best moment: stays on this device. <a id="snapshot-save" download="yogle.jpg" href="#">Save picture</a></figcaption>
+      </figure>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <p class="safety"><strong>Stop if anything hurts.</strong> Yogle is a game, not medical or fitness advice. Some poses are advanced (inversions, arm balances, deep backbends): only do what you can do safely, warm up first, use a clear space and play at your own risk.</p>
+    <p>Your camera video is processed on this device and never uploaded. Scores are kept only in this browser.</p>
+    <p>Pose targets derived from <a href="https://github.com/seonokkim/3DYoga90">3DYoga90</a> (Kim et al., 2023; CC BY-NC 4.0). Pose tracking: <a href="https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker">MediaPipe Pose Landmarker</a> (Apache-2.0). A non-commercial research project.</p>
+  </footer>
+
+  <dialog id="disclaimer" class="dialog" aria-labelledby="disclaimer-title">
+    <h2 id="disclaimer-title">Before you start</h2>
+    <ul>
+      <li><strong>Stop immediately if anything hurts</strong> or you feel dizzy.</li>
+      <li>Some poses are advanced: inversions, arm balances and deep backbends. Skip any pose you don't already practise safely.</li>
+      <li>Warm up, clear a non-slip space (about 2 m × 1 m) and keep away from furniture.</li>
+      <li>If you are pregnant, injured, or have a medical condition, check with a professional first.</li>
+      <li>You play at your own risk. Yogle is a game, not instruction.</li>
+    </ul>
+    <p>Your camera is used only on this device. Nothing is uploaded.</p>
+    <form method="dialog" class="actions">
+      <button value="ok" class="btn primary" id="btn-agree">I understand, let's go</button>
+      <button value="cancel" class="btn">Not now</button>
+    </form>
+  </dialog>
+</body>
+</html>
