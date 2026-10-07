@@ -4,6 +4,10 @@ A daily yoga pose game in the browser. Everyone gets the same pose each day (cho
 
 > ⚠️ Some poses are advanced (inversions, arm balances, deep backbends). Stop if anything hurts. You play at your own risk.
 
+**New here (human or agent)? Read [docs/HANDOVER.md](docs/HANDOVER.md).**
+
+Features: the daily pose, a 10 s hold scored for pose quality and stillness, an emoji share grid, streaks, practice mode for all 70 poses, a **shared daily leaderboard** and an **archive** to replay past days (replays rank on a separate "played later" board).
+
 ## Play
 https://biccyanzac-pixel.github.io/yogle/
 
@@ -29,6 +33,7 @@ git subtree split --prefix site -b gh-pages && git push -f origin gh-pages
   - `js/angles.js` (features), `js/scoring.js` (matching and hold), `js/daily.js` (date and seeding), `js/app.js` (UI)
   - `data/poses.json` (pose library), `data/schedule.json` (daily schedule)
   - `vendor/mediapipe/`, `models/`: MediaPipe Tasks Vision 1.1.0 and the pose models (Apache-2.0)
+- `worker/`: leaderboard API (Cloudflare Worker + D1), https://yogle-leaderboard.jacob-gg-leaderboard-worker.workers.dev
 - `tools/`: library builder, schedule generator, real-video scoring evaluation, dev server
 - `bench/`: Phase 1 model benchmark harness (large data is not committed)
 - `docs/`: decisions and status. Start with [docs/build-status.md](docs/build-status.md).

@@ -13,7 +13,8 @@
 | Pose library (Phase 2) | 70 poses from real people, difficulty 1–10. See [pose-library.md](pose-library.md). No modifiers yet. |
 | Daily schedule (Phase 3) | `site/data/schedule.json`, 2026-10-05 to 2029-01-01 (820 days), seeded and deterministic. Rules tested: no repeat within 21 days, different body focus on consecutive days, difficulty rising Mon→Sun (mean 2.3 → 9.0). Falls back to a seeded pick after it ends. |
 | Game (Phase 4) | Rotatable 3D target figure, mirrored camera with a white ghost outline, framing prompts, per-frame scoring, 10 s hold with a 1 s dropout grace, stillness score, result screen with an emoji grid, share, best-moment snapshot (kept on device), streaks in localStorage, practice mode for every pose, disclaimer dialog. |
-| Tests | `npm test`: 25 pass. 1 `todo`: the pose+modifier yearly rule. |
+| Leaderboard and archive (added 2026-10-07) | Shared daily board (name, score, pose quality, stillness, hold time; best run per player). An archive of every past day with replay; replays rank on a separate "played later" board. Cloudflare Worker + D1 (free tier) in `worker/`. See [HANDOVER.md](HANDOVER.md). |
+| Tests | `npm test`: 26 pass. 1 `todo`: the pose+modifier yearly rule. Worker: 25 end-to-end checks against local D1. |
 
 ## Scoring (provisional: these numbers set difficulty)
 - A frame's score is the weighted mean over the 9 segments: 1 inside tolerance, falling linearly to 0 at tolerance + 30°.

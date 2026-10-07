@@ -35,6 +35,13 @@
         <p class="done-today" id="done-today" hidden></p>
       </div>
 
+      <section class="panel" aria-labelledby="board-title" id="today-board-panel">
+        <h3 id="board-title" class="panel-title">Today's leaderboard</h3>
+        <ol id="today-board" class="board"></ol>
+        <p id="today-board-msg" class="muted"></p>
+      </section>
+      <button id="btn-archive" class="btn wide" type="button">Archive: play past days</button>
+
       <details class="panel" id="setup">
         <summary>How to set up your phone or laptop</summary>
         <div class="setup-body">
@@ -64,6 +71,26 @@
       </details>
 
       <section class="panel stats" aria-label="Your stats" id="stats"></section>
+    </section>
+
+    <!-- ARCHIVE -->
+    <section id="screen-archive" class="screen" hidden aria-labelledby="archive-title">
+      <div class="row-between"><h2 id="archive-title" class="section-title">Archive</h2><button id="btn-archive-back" class="btn small" type="button">Back</button></div>
+      <p class="muted">Replay any past day. Replays go on a separate <strong>played later</strong> board, so a day's original leaderboard never changes.</p>
+      <div id="archive-day" class="panel" hidden>
+        <p class="daynum" id="archive-daynum"></p>
+        <h3 class="pose-name" id="archive-pose"></h3>
+        <p class="meta" id="archive-meta"></p>
+        <canvas id="archive-figure" class="figure small-figure"></canvas>
+        <div class="actions"><button id="btn-archive-play" class="btn primary" type="button">Play this day</button></div>
+        <h4 class="panel-title">On the day</h4>
+        <ol id="archive-board" class="board"></ol>
+        <p id="archive-board-msg" class="muted"></p>
+        <h4 class="panel-title">Played later</h4>
+        <ol id="archive-late-board" class="board"></ol>
+        <p id="archive-late-msg" class="muted"></p>
+      </div>
+      <ol id="archive-list" class="archive-list"></ol>
     </section>
 
     <!-- PLAY -->
@@ -105,6 +132,18 @@
         <button id="btn-home" class="btn" type="button">Home</button>
       </div>
       <p id="share-msg" class="share-msg" role="status" aria-live="polite"></p>
+      <form id="submit-form" class="panel submit-form" hidden>
+        <label for="player-name" class="label" id="submit-label">Your name for the leaderboard</label>
+        <div class="submit-row">
+          <input id="player-name" class="input" maxlength="20" autocomplete="nickname" required>
+          <button id="btn-submit" class="btn primary" type="submit">Submit score</button>
+        </div>
+        <p id="submit-msg" class="muted" role="status" aria-live="polite"></p>
+      </form>
+      <section id="result-board-wrap" class="panel" hidden>
+        <h3 id="result-board-title" class="panel-title"></h3>
+        <ol id="result-board" class="board"></ol>
+      </section>
       <figure class="snapshot" id="snapshot-wrap" hidden>
         <img id="snapshot" alt="Your best moment">
         <figcaption>Your best moment: stays on this device. <a id="snapshot-save" download="yogle.jpg" href="#">Save picture</a></figcaption>

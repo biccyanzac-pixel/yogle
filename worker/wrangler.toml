@@ -1,0 +1,12 @@
+name = "yogle-leaderboard"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "yogle-leaderboard"
+database_id = "8d19f1c4-0cde-4b05-be50-9d6347d75451"
+
+# Browser origins allowed to call this API (comma-separated).
+[vars]
+ALLOWED_ORIGINS = "https://biccyanzac-pixel.github.io"

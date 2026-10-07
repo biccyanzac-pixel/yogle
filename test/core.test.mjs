@@ -187,3 +187,11 @@ test('fallback entry is deterministic and harder on Sunday than Monday', () => {
   }
   assert.ok(sunSum > monSum);
 });
+
+test('reported hold time never exceeds HOLD_SECONDS (the leaderboard rejects it)', () => {
+  for (const fps of [3, 7, 11, 24, 30]) { // coarse frame steps can overshoot the 10 s mark
+    const h = runHold(Array(fps * (CONFIG.HOLD_SECONDS + 2)).fill(good()), fps);
+    assert.equal(h.state, 'done');
+    assert.ok(h.result().held <= CONFIG.HOLD_SECONDS && h.result().held > CONFIG.HOLD_SECONDS - 0.5, `fps ${fps}: ${h.result().held}`);
+  }
+});

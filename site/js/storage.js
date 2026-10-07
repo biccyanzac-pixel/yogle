@@ -38,3 +38,13 @@ export function stats(today) {
   const scores = dates.map((dt) => h[dt].score);
   return { played: dates.length, streak, bestStreak: best, average: scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null };
 }
+
+/** Archive replays are kept apart from daily history: they never count towards streaks or stats. */
+export function recordReplay(date, { pose, score }) {
+  const d = read();
+  d.replays = d.replays || {};
+  if (!d.replays[date] || score > d.replays[date].score) d.replays[date] = { pose, score };
+  write(d);
+}
+
+export function getReplay(date) { return read().replays?.[date] ?? null; }

@@ -168,7 +168,7 @@ export class HoldSession {
     const stability = s.length ? stabilityFromStd(meanStd, cfg) : 0;
     const completion = Math.min(1, this.held / cfg.HOLD_SECONDS);
     const score = Math.round(completion * ((1 - cfg.STABILITY_WEIGHT) * accuracy + cfg.STABILITY_WEIGHT * stability));
-    return { score, accuracy: Math.round(accuracy), stability: Math.round(stability), completion, held: this.held, grid: this.grid(), mirrored: s.length ? s.filter((x) => x.mirrored).length > s.length / 2 : false };
+    return { score, accuracy: Math.round(accuracy), stability: Math.round(stability), completion, held: Math.min(this.held, cfg.HOLD_SECONDS), grid: this.grid(), mirrored: s.length ? s.filter((x) => x.mirrored).length > s.length / 2 : false };
   }
 
   /** 4 rows (arms, legs, torso, steadiness) x 5 two-second columns of 0-100 scores (null = no data). */
@@ -201,9 +201,9 @@ export function emojiFor(v) {
   return '🟥';
 }
 
-export function shareText({ dayNumber, poseName, score, grid, practice = false }) {
+export function shareText({ dayNumber, poseName, score, grid, practice = false, replay = false }) {
   const label = { arms: 'Arms ', legs: 'Legs ', torso: 'Torso', steady: 'Still' };
   const lines = Object.entries(grid).map(([k, row]) => row.map(emojiFor).join('') + ' ' + label[k].trim());
-  const head = practice ? `Yogle practice 🧘 ${poseName} ${score}/100` : `Yogle #${dayNumber} 🧘 ${poseName} ${score}/100`;
+  const head = practice ? `Yogle practice 🧘 ${poseName} ${score}/100` : `Yogle #${dayNumber}${replay ? ' (replay)' : ''} 🧘 ${poseName} ${score}/100`;
   return [head, ...lines].join('\n');
 }
