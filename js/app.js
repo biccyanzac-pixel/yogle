@@ -1,7 +1,7 @@
 // Yogle: screens, camera loop and game flow.
 import { features } from './angles.js';
 import { matchPose, visibleFeatures, HoldSession, CONFIG, shareText } from './scoring.js';
-import { utcDateString, dayNumber, entryFor, addDays, EPOCH } from './daily.js';
+import { utcDateString, dayNumber, entryFor, addDays, EPOCH, msUntilNextUtcDay, formatCountdown } from './daily.js';
 import { Figure3D, drawSkeleton2D, ghostPoints, BONE_FEATURE } from './figure.js';
 import { Tracker } from './tracker.js';
 import * as store from './storage.js';
@@ -77,6 +77,8 @@ async function init() {
   $('btn-archive-play').addEventListener('click', () => begin(poseById(archiveSel.pose), false, archiveSel.day));
   $('submit-form').addEventListener('submit', (e) => { e.preventDefault(); submitScore(); });
   api.loadConfig().then(refreshTodayBoard);
+  tickCountdown();
+  setInterval(tickCountdown, 1000);
   $('btn-share').addEventListener('click', share);
   if (params.get('pose') && poseById(params.get('pose'))) { sel.value = params.get('pose'); $('practice').open = true; }
 }
@@ -426,6 +428,22 @@ async function openArchiveDay(d, pose) {
     try { renderBoard($(list), $(msg), await api.board(d, late), late ? 'Nobody has replayed this day yet.' : 'Nobody played this day.'); }
     catch { renderBoard($(list), $(msg), null); }
   }
+}
+
+// ---------- countdown to the next pose (00:00 UTC for everyone) ----------
+function tickCountdown() {
+  const el = $('countdown');
+  if (params.get('date')) { el.textContent = ''; return; } // testing a fixed date
+  const real = utcDateString();
+  if (real !== today) {
+    // a new day has started: switch over, unless someone is mid-pose
+    if (!$('screen-play').hidden) { el.textContent = 'A new pose is out! Finish this one, then head home.'; return; }
+    today = real;
+    todayPose = poseById(entryFor(today, SCHED, LIB.poses).pose);
+    renderHome();
+    refreshTodayBoard();
+  }
+  el.textContent = `Next pose in ${formatCountdown(msUntilNextUtcDay())}`;
 }
 
 init();
