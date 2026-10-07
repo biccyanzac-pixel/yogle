@@ -195,3 +195,15 @@ test('reported hold time never exceeds HOLD_SECONDS (the leaderboard rejects it)
     assert.ok(h.result().held <= CONFIG.HOLD_SECONDS && h.result().held > CONFIG.HOLD_SECONDS - 0.5, `fps ${fps}: ${h.result().held}`);
   }
 });
+
+test('countdown to the next UTC midnight', async () => {
+  const { msUntilNextUtcDay, formatCountdown } = await import('../site/js/daily.js');
+  assert.equal(msUntilNextUtcDay(new Date('2026-10-07T23:59:59Z')), 1000);
+  assert.equal(msUntilNextUtcDay(new Date('2026-10-07T00:00:00Z')), 86400000);
+  // UK summer time: 00:30 BST on 8 Oct is still 23:30 UTC on 7 Oct -> 30 min left
+  assert.equal(msUntilNextUtcDay(new Date('2026-10-08T00:30:00+01:00')), 30 * 60000);
+  assert.equal(msUntilNextUtcDay(new Date('2028-02-28T12:00:00Z')), 12 * 3600000); // leap year
+  assert.equal(formatCountdown(3 * 3600000 + 4 * 60000 + 5000), '03:04:05');
+  assert.equal(formatCountdown(-5), '00:00:00');
+  assert.equal(formatCountdown(1), '00:00:01'); // rounds up so it never shows 0 early
+});

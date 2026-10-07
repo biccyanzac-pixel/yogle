@@ -59,3 +59,16 @@ export function entryFor(dateStr, schedule, poses) {
   const pick = sorted[lo + Math.floor(rand() * (hi - lo))];
   return { pose: pick.id, date: dateStr, fromSchedule: false };
 }
+
+/** Milliseconds until the next UTC midnight, when everyone's pose changes. */
+export function msUntilNextUtcDay(now = new Date()) {
+  const next = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+  return next - now.getTime();
+}
+
+/** "HH:MM:SS" for a duration in ms (never negative). */
+export function formatCountdown(ms) {
+  const t = Math.max(0, Math.ceil(ms / 1000));
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(Math.floor(t / 3600))}:${pad(Math.floor((t % 3600) / 60))}:${pad(t % 60)}`;
+}

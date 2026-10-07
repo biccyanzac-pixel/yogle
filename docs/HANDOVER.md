@@ -54,7 +54,7 @@ docs/                     decisions and status (this file is the entry point)
 ```
 
 ## 4. How it works at runtime
-1. **Daily pose:** `entryFor(utcDate, schedule, poses)` in `daily.js`. If the date is in `schedule.json`, use it. Otherwise fall back to a seeded pick in that weekday's difficulty band. Puzzle #1 = 2026-10-05 (`EPOCH`). The day changes at 00:00 UTC for everyone.
+1. **Daily pose:** `entryFor(utcDate, schedule, poses)` in `daily.js`. If the date is in `schedule.json`, use it. Otherwise fall back to a seeded pick in that weekday's difficulty band. Puzzle #1 = 2026-10-05 (`EPOCH`). The day changes at 00:00 UTC for everyone (midnight UK time in winter, 01:00 during British Summer Time). Nothing is generated at midnight: each browser works out the pose from the date. The home screen shows "Next pose in HH:MM:SS" (`tickCountdown()` in `app.js`, `msUntilNextUtcDay()` in `daily.js`). At zero, the home and archive screens switch to the new day automatically; if the player is mid-pose it waits until they finish (a run that ends after midnight counts as "played later" on the server). `bench/countdown-check.mjs` tests this with a fake clock.
 2. **Tracking:** `tracker.js` loads MediaPipe full on the GPU (falling back to the CPU). After about 4 s below 12 FPS, `app.js` switches to the lite model. `detect(video)` returns `{ pts (pixels, unmirrored), vis[33], norm, world }` in **MediaPipe 33-landmark order**.
 3. **Features:** `angles.js` turns landmarks into 9 signed angles in the image plane: torso, upper arms, forearms, thighs and shins.
 4. **Match:** `matchPose()` in `scoring.js`. Each feature scores 1 inside its tolerance, falling linearly to 0 at tolerance + 30°. The frame score is the weighted mean.
