@@ -11,7 +11,7 @@ const page = await browser.newPage({ viewport: { width: 420, height: 860 }, devi
 const logs = [];
 page.on('console', (m) => logs.push(`[${m.type()}] ${m.text()}`));
 page.on('pageerror', (e) => logs.push(`[pageerror] ${e.message}`));
-await page.goto(`http://localhost:8090/?debug&pose=${poseId}`);
+await page.goto(`${process.env.E2E_BASE || "http://localhost:8090/"}?debug&pose=${poseId}`);
 await page.waitForSelector('#today-title:not(:empty)');
 fs.mkdirSync('bench/results/e2e', { recursive: true });
 await page.screenshot({ path: `bench/results/e2e/${label}-home.png`, fullPage: true });

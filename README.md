@@ -17,6 +17,13 @@ npm run schedule              # regenerate site/data/schedule.json after changin
 python tools/build_library.py bench/data/3dyoga90 bench/data/3dyoga90_repo/data/pose-index.csv   # rebuild poses.json
 ```
 
+## Deploy
+The site is served by GitHub Pages from the `gh-pages` branch, which mirrors `site/`:
+```
+git subtree split --prefix site -b gh-pages && git push -f origin gh-pages
+```
+(`tools/github-pages-workflow.example.yml` would automate this with tests on every push. It needs a GitHub token with the `workflow` scope; copy it to `.github/workflows/` to enable it.)
+
 ## Layout
 - `site/`: the static website (deployed to GitHub Pages)
   - `js/angles.js` (features), `js/scoring.js` (matching and hold), `js/daily.js` (date and seeding), `js/app.js` (UI)
