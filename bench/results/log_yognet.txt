@@ -1,0 +1,15 @@
+{"ua":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/154.0.0.0 Safari/537.36","coi":true,"cores":8,"webgpu":true,"adapter":{"vendor":"intel","architecture":"gen-9","description":""},"f16":true}
+mp-lite-gpu                        {"init":462,"first":7664,"median":62.6,"p90":69.3,"fps":15.9,"detected":"432/456"}
+mp-full-gpu                        {"init":397,"first":1168,"median":72.6,"p90":79.2,"fps":13.8,"detected":"430/456"}
+movenet-lightning-webgl            {"init":422,"first":12821,"median":34.1,"p90":36.6,"fps":29.1,"detected":"450/456"}
+movenet-thunder-webgl              {"init":166,"first":9452,"median":45.9,"p90":49.1,"fps":21.5,"detected":"439/456"}
+  [console] [0;93m2026-10-07 00:11:03.867905 [W:onnxruntime:, session_state.cc:1397 VerifyEachNodeIsAssignedToAnEp] Some nodes were not assigned to the preferred execution providers which may or may not have an 
+  [console] [0;93m2026-10-07 00:11:03.870895 [W:onnxruntime:, session_state.cc:1399 VerifyEachNodeIsAssignedToAnEp] Rerunning with verbose output on a non-minimal build will show node assignments.[m
+  [console] [0;93m2026-10-07 00:11:04.624375 [W:onnxruntime:, session_state.cc:1397 VerifyEachNodeIsAssignedToAnEp] Some nodes were not assigned to the preferred execution providers which may or may not have an 
+  [console] [0;93m2026-10-07 00:11:04.625755 [W:onnxruntime:, session_state.cc:1399 VerifyEachNodeIsAssignedToAnEp] Rerunning with verbose output on a non-minimal build will show node assignments.[m
+rtmpose-s-fp32-webgpu-every        {"init":3049,"first":2694,"median":184.3,"p90":205,"fps":5.4,"detected":"387/456"}
+  [console] [0;93m2026-10-07 00:12:38.694064 [W:onnxruntime:, session_state.cc:1397 VerifyEachNodeIsAssignedToAnEp] Some nodes were not assigned to the preferred execution providers which may or may not have an 
+  [console] [0;93m2026-10-07 00:12:38.701199 [W:onnxruntime:, session_state.cc:1399 VerifyEachNodeIsAssignedToAnEp] Rerunning with verbose output on a non-minimal build will show node assignments.[m
+  [console] [0;93m2026-10-07 00:12:39.695403 [W:onnxruntime:, session_state.cc:1397 VerifyEachNodeIsAssignedToAnEp] Some nodes were not assigned to the preferred execution providers which may or may not have an 
+  [console] [0;93m2026-10-07 00:12:39.696643 [W:onnxruntime:, session_state.cc:1399 VerifyEachNodeIsAssignedToAnEp] Rerunning with verbose output on a non-minimal build will show node assignments.[m
+rtmpose-m-fp16-webgpu-every        {"init":3095,"first":3795,"median":198.6,"p90":244,"fps":5.1,"detected":"387/456"}

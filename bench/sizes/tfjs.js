@@ -1,0 +1,1 @@
+import * as tf from '@tensorflow/tfjs-core'; import '@tensorflow/tfjs-converter'; import '@tensorflow/tfjs-backend-webgl'; import * as pd from '@tensorflow-models/pose-detection'; window.x = [tf, pd];

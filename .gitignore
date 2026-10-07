@@ -1,0 +1,15 @@
+node_modules/
+bench/node_modules/
+bench/data/
+bench/models/
+bench/frames/
+bench/fakecam/
+bench/web/bundle.js
+bench/sizes/*.out.js
+bench/results/*.json
+bench/results/e2e/
+__pycache__/
+bench/results/*.jpg
+!bench/results/library_sheet.jpg
+bench/results/*.png
+bench/results/modelcard*.txt
