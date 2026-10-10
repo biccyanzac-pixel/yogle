@@ -88,6 +88,7 @@ function renderHome() {
   const nice = new Date(today + 'T12:00:00Z').toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
   $('daynum').textContent = `Yogle #${n} · ${nice}`;
   if (window.JGG) $('level').replaceChildren(JGG.levelChip(today));
+  if (window.JGG) JGG.playingAs({ mount: $('playing-as'), name: api.savedName(), onChange: (n) => api.saveName(n) });
   $('today-title').textContent = todayPose.name;
   $('today-meta').textContent = `Difficulty ${todayPose.difficulty.toFixed(1)}/10 · ${cap(todayPose.focus)} · ${viewText(todayPose)}`;
   $('advanced-warning').hidden = !todayPose.advanced;
