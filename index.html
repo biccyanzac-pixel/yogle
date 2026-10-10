@@ -5,13 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Yogle</title>
   <meta name="description" content="One yoga pose a day. Match it in front of your camera, hold it for 10 seconds, share your score. Video never leaves your device.">
-  <meta name="theme-color" content="#14213d">
+  <meta name="color-scheme" content="dark light">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='12' r='7' fill='%23e4572e'/%3E%3Cpath d='M32 20v22M32 26l-18-10M32 26l18-10M32 42l-12 18M32 42l12 18' stroke='%2314213d' stroke-width='6' stroke-linecap='round' fill='none'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="https://biccyanzac-pixel.github.io/jacob.gg/kit/jgg.css">
   <link rel="stylesheet" href="css/style.css">
+  <script src="https://biccyanzac-pixel.github.io/jacob.gg/kit/jgg.js" defer></script>
   <script type="module" src="js/app.js"></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
+  <header class="masthead">
+    <a class="wordmark" href="https://biccyanzac-pixel.github.io/jacob.gg/">jacob<span>.gg</span></a>
+  </header>
   <header class="top">
     <h1 class="brand">Yogle</h1>
     <p class="tagline">One pose a day. Match it. Hold it. Share it.</p>
@@ -21,6 +26,7 @@
     <!-- HOME -->
     <section id="screen-home" class="screen" aria-labelledby="today-title">
       <p class="daynum" id="daynum">Loading…</p>
+      <p class="level" id="level"></p>
       <p class="countdown" id="countdown" aria-live="off"></p>
       <h2 id="today-title" class="pose-name">…</h2>
       <p class="meta" id="today-meta"></p>
@@ -141,6 +147,7 @@
         </div>
         <p id="submit-msg" class="muted" role="status" aria-live="polite"></p>
       </form>
+      <div id="rate"></div>
       <section id="result-board-wrap" class="panel" hidden>
         <h3 id="result-board-title" class="panel-title"></h3>
         <ol id="result-board" class="board"></ol>
