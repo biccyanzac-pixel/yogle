@@ -87,6 +87,7 @@ function renderHome() {
   const n = dayNumber(today);
   const nice = new Date(today + 'T12:00:00Z').toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
   $('daynum').textContent = `Yogle #${n} · ${nice}`;
+  if (window.JGG) $('level').replaceChildren(JGG.levelChip(today));
   $('today-title').textContent = todayPose.name;
   $('today-meta').textContent = `Difficulty ${todayPose.difficulty.toFixed(1)}/10 · ${cap(todayPose.focus)} · ${viewText(todayPose)}`;
   $('advanced-warning').hidden = !todayPose.advanced;
@@ -348,13 +349,18 @@ async function refreshTodayBoard() {
 function prepareSubmit(res, replay) {
   const form = $('submit-form');
   $('result-board-wrap').hidden = true;
+  $('rate').hidden = game.practice;
+  if (!game.practice) window.JGG?.rate({ game: 'yogle', day: game.day, mount: $('rate') });
   form.hidden = game.practice || !api.enabled() || res.held <= 0;
   if (form.hidden) return;
   $('submit-label').textContent = replay ? 'Your name for this day\'s "played later" board' : "Your name for today's leaderboard";
   $('player-name').value = api.savedName();
   $('btn-submit').disabled = false;
   $('submit-msg').textContent = replay ? "Replays never change the original day's board." : 'Only your name and scores are sent. Your best run counts.';
-  showResultBoard(replay).catch(() => {});
+  // House rule: once you've given a name, every finished try goes on the board by itself (your best one ranks).
+  // First-timers type a name once; a failed send leaves the form to retry.
+  if (api.savedName()) submitScore();
+  else showResultBoard(replay).catch(() => {});
 }
 
 async function showResultBoard(replay, data) {
