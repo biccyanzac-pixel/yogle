@@ -14,9 +14,22 @@ export const BONE_FEATURE = {
   '11-12': 'torso', '11-23': 'torso', '12-24': 'torso', '23-24': 'torso',
 };
 
-function cssVar(name, fallback) {
-  try { return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback; } catch { return fallback; }
+// The figure's colours, read once and cached (getComputedStyle every frame is expensive). The cache is dropped,
+// and visible figures redrawn, when the colour scheme changes or the window is resized.
+let COLOURS = null;
+function colours() {
+  if (COLOURS) return COLOURS;
+  let cs = null;
+  try { cs = getComputedStyle(document.documentElement); } catch { /* fall back below */ }
+  const v = (name, fallback) => cs?.getPropertyValue(name).trim() || fallback;
+  // the kit's --shadow is a box-shadow, not a colour, so the floor shadow gets its own soft tint
+  const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+  return (COLOURS = { shadow: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.12)', l: v('--left', '#e4572e'), r: v('--right', '#1f6feb'), c: v('--ink', '#222') });
 }
+const FIGURES = new Set();
+function restyle() { COLOURS = null; for (const f of FIGURES) if (f.visible) f.draw(); }
+addEventListener('resize', restyle);
+try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', restyle); } catch { /* old Safari: resize still refreshes */ }
 
 /** Map a pose's display skeleton (array aligned with landmarkIds) to a sparse 33-array of {x,y,z}. */
 export function skeletonPoints(pose, landmarkIds) {
@@ -43,23 +56,37 @@ export class Figure3D {
     canvas.addEventListener('keydown', (e) => {
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { this.auto = false; this.yaw += e.key === 'ArrowLeft' ? -0.2 : 0.2; this.draw(); e.preventDefault(); }
     });
-    const loop = () => {
-      if (this.auto && this.pts) { this.yaw = 0.5 * Math.sin((performance.now() - this.t0) / 1800); this.draw(); }
-      this.raf = requestAnimationFrame(loop);
+    // Auto-rotate runs only while the canvas is on screen (hidden screens and scrolled-away canvases don't
+    // intersect). Without auto-rotate (reduce motion, the mini figure, or after a drag) it draws only on change.
+    this.raf = 0;
+    this.visible = !('IntersectionObserver' in window);
+    this.tick = () => {
+      this.raf = 0;
+      if (!this.auto || !this.visible || !this.pts) return;
+      this.yaw = 0.5 * Math.sin((performance.now() - this.t0) / 1800);
+      this.draw();
+      this.kick();
     };
-    this.raf = requestAnimationFrame(loop);
+    if (!this.visible) new IntersectionObserver((es) => {
+      this.visible = es[es.length - 1].isIntersecting;
+      if (this.visible) { this.draw(); this.kick(); }
+    }).observe(canvas);
+    FIGURES.add(this);
   }
+
+  kick() { if (!this.raf && this.auto && this.visible && this.pts) this.raf = requestAnimationFrame(this.tick); }
 
   set(pose, landmarkIds) {
     this.pts = skeletonPoints(pose, landmarkIds);
     this.canvas.setAttribute('aria-label', `${pose.name}: figure showing the target pose. Use left and right arrow keys to rotate.`);
     this.yaw = 0;
     this.draw();
+    this.kick();
   }
 
   draw() {
     const { canvas, ctx, pts } = this;
-    if (!pts) return;
+    if (!pts || !canvas.clientWidth) return; // hidden: drawn again when it shows
     const dpr = window.devicePixelRatio || 1;
     const w = canvas.clientWidth, h = canvas.clientHeight;
     if (canvas.width !== Math.round(w * dpr)) { canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr); }
@@ -76,9 +103,9 @@ export class Figure3D {
     const cx = w / 2, cy = h / 2 - ((minY + maxY) / 2) * scale;
     const X = (p) => cx + p.x * scale, Y = (p) => cy + p.y * scale;
     // floor shadow
-    ctx.fillStyle = cssVar('--shadow', 'rgba(0,0,0,0.12)');
+    const colour = colours();
+    ctx.fillStyle = colour.shadow;
     ctx.beginPath(); ctx.ellipse(cx, cy + maxY * scale + 6, r * scale, 8, 0, 0, Math.PI * 2); ctx.fill();
-    const colour = { l: cssVar('--left', '#e4572e'), r: cssVar('--right', '#1f6feb'), c: cssVar('--ink', '#222') };
     const bones = BONES.filter(([a, b]) => P[a] && P[b]).map(([a, b, side]) => ({ a, b, side, z: (P[a].z + P[b].z) / 2 }));
     bones.sort((u, v) => v.z - u.z); // far first (larger z = further from viewer)
     ctx.lineCap = 'round';
