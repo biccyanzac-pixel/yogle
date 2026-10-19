@@ -103,7 +103,7 @@ html:has(#screen-play:not([hidden])), html:has(#screen-play:not([hidden])) body 
 .meter-label { display: flex; justify-content: space-between; font-weight: 700; }
 .meter-bar { position: relative; height: 18px; border-radius: 9px; background: rgba(255,255,255,0.25); overflow: hidden; }
 /* a live value set every frame: linear, 120 ms, and scaleX so it never re-lays out the HUD */
-.meter-fill { height: 100%; background: #4cc26b; transform: scaleX(0); transform-origin: left; transition: transform var(--jgg-t-press, 120ms) linear; }
+.meter-fill { height: 100%; background: #4cc26b; transform: scaleX(0); transform-origin: left; } /* a live value set every frame: no transition, it would only lag */
 .meter-threshold { position: absolute; top: 0; bottom: 0; width: 3px; background: #fff; }
 .hold { position: relative; width: 64px; height: 64px; }
 .ring { width: 64px; height: 64px; transform: rotate(-90deg); }

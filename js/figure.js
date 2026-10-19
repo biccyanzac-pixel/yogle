@@ -40,7 +40,8 @@ export function skeletonPoints(pose, landmarkIds) {
 
 /** Rotatable 3D figure. Drag (or arrow keys) to rotate around the vertical axis. */
 export class Figure3D {
-  constructor(canvas, { autoRotate = true } = {}) {
+  constructor(canvas, { autoRotate = true, lightCard = false } = {}) {
+    this.lightCard = lightCard; // drawn on an always-white card (the play HUD), so it takes the light-scheme shadow
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.yaw = 0;
@@ -104,7 +105,7 @@ export class Figure3D {
     const X = (p) => cx + p.x * scale, Y = (p) => cy + p.y * scale;
     // floor shadow
     const colour = colours();
-    ctx.fillStyle = colour.shadow;
+    ctx.fillStyle = this.lightCard ? 'rgba(0,0,0,0.12)' : colour.shadow;
     ctx.beginPath(); ctx.ellipse(cx, cy + maxY * scale + 6, r * scale, 8, 0, 0, Math.PI * 2); ctx.fill();
     const bones = BONES.filter(([a, b]) => P[a] && P[b]).map(([a, b, side]) => ({ a, b, side, z: (P[a].z + P[b].z) / 2 }));
     bones.sort((u, v) => v.z - u.z); // far first (larger z = further from viewer)

@@ -127,7 +127,7 @@ async function begin(pose, practice, day = null) {
     frames: [], snap: null, snapBest: -1, snapT: 0, lastHint: '', lastHintT: 0, ended: false, switching: false };
   setStatus('Starting the camera…');
   $('match-threshold').style.left = CONFIG.MATCH_THRESHOLD + '%';
-  miniFigure ??= new Figure3D($('mini-figure'), { autoRotate: false });
+  miniFigure ??= new Figure3D($('mini-figure'), { autoRotate: false, lightCard: true });
   miniFigure.set(pose, LIB.skeleton_landmarks);
   $('mini-name').textContent = `${pose.name} · ${pose.view}`;
   updateMeters(0, 0);
@@ -294,22 +294,23 @@ function stopCamera() {
   $('video').srcObject = null;
 }
 
-// Hold complete: the ring pulses once (scale 1 -> 1.06 -> 1, 220 ms; an opacity flash under reduce motion) on the
-// paused last frame. The result is recorded and submitted at once; only the switch to the result waits for it.
-function pulseHold() {
-  const el = document.querySelector('.hold');
-  if (!el.animate) return 0;
-  const calm = window.JGG?.motion?.reduced() ?? matchMedia('(prefers-reduced-motion: reduce)').matches;
-  el.animate(calm ? [{ opacity: 1 }, { opacity: 0.55 }, { opacity: 1 }] : [{ transform: 'none' }, { transform: 'scale(1.06)' }, { transform: 'none' }],
-    { duration: 220, easing: calm ? 'ease' : 'cubic-bezier(0.23, 1, 0.32, 1)' });
-  return 220;
+// Hold complete: the result appears at once underneath and the play screen fades off it (JGG.motion.exit, 160 ms)
+// while the ring pulses (1 -> 1.06 -> 1), so success is marked without any wait before the result. Reduce motion,
+// no kit, or a quit/timeout: straight to the result.
+function celebrate() {
+  const m = window.JGG?.motion, play = $('screen-play'), ring = document.querySelector('.hold');
+  if (!m || m.reduced() || !ring.animate) return false;
+  setStatus('Done!');
+  ring.animate([{ transform: 'none' }, { transform: 'scale(1.06)' }, { transform: 'none' }], { duration: 160, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
+  play.hidden = false;
+  m.exit(play).then(stopCamera);
+  return true;
 }
 
 function finish(quit, completed = false) {
   if (!game || game.ended) return;
   game.ended = true;
-  const wait = completed ? pulseHold() : 0;
-  if (wait) { cancelAnimationFrame(game.raf); $('video').pause(); } else stopCamera();
+  if (completed) { cancelAnimationFrame(game.raf); $('video').pause(); } else stopCamera();
   const s = game.session;
   if (!s || !s.samples.length) { show('home'); renderHome(); return; }
   const res = s.result();
@@ -330,15 +331,15 @@ function finish(quit, completed = false) {
   const g = game;
   const reveal = () => {
     if (game !== g) return g.stream?.getTracks().forEach((t) => t.stop());
-    if (wait) stopCamera();
     show('result');
+    if (!(completed && celebrate())) stopCamera();
     // The score counts up (tap to skip); the detail and grid follow with a 50 ms stagger. The share button,
     // the name form and the board are already there and never wait for these.
     const m = window.JGG?.motion;
     if (m) { $('result-score').textContent = '0'; m.settle($('result-score'), res.score); m.reveal([$('result-detail'), $('result-grid')]); }
     else $('result-score').textContent = res.score;
   };
-  wait ? setTimeout(reveal, wait) : reveal();
+  reveal();
 }
 
 async function share() {
