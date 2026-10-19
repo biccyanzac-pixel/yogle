@@ -39,6 +39,7 @@ function show(screen) {
   document.querySelector('.top').hidden = screen === 'play';
   document.querySelector('.foot').hidden = screen === 'play';
   if (from !== to) {
+    if (screen === 'play' && to._jgg) { to._jgg.cancel(); to._jgg = null; to.inert = false; } // "Try again" mid-fade
     if (!m || screen === 'play') { from.hidden = true; to.hidden = false; }
     else if (current === 'play') { from.hidden = true; m.enter(to); }
     else m.swap(from, to);
@@ -303,7 +304,12 @@ function celebrate() {
   setStatus('Done!');
   ring.animate([{ transform: 'none' }, { transform: 'scale(1.06)' }, { transform: 'none' }], { duration: 160, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
   play.hidden = false;
-  m.exit(play).then(stopCamera);
+  play.inert = true; // taps go to the result underneath, never to the fading camera screen
+  const g = game;
+  m.exit(play).then(() => {
+    play.inert = false;
+    if (game === g) stopCamera(); else g.stream?.getTracks().forEach((t) => t.stop()); // a new game may have started
+  });
   return true;
 }
 
