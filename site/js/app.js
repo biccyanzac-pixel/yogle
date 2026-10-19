@@ -350,7 +350,7 @@ async function share() {
 }
 
 // ---------- leaderboard ----------
-const fmt = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+const fmt = (n) => (typeof n !== 'number' || !Number.isFinite(n) ? '–' : Number.isInteger(n) ? String(n) : n.toFixed(1));
 
 function renderBoard(listEl, msgEl, data, emptyText) {
   listEl.replaceChildren();
@@ -362,7 +362,9 @@ function renderBoard(listEl, msgEl, data, emptyText) {
     if (r.gap) { li.className = 'gap'; li.textContent = '…'; listEl.append(li); continue; }
     if (r.you) li.className = 'me';
     const rank = document.createElement('span'); rank.className = 'rank'; rank.textContent = r.rank;
-    const name = document.createElement('span'); name.className = 'name'; name.textContent = r.you ? `${r.name} (you)` : r.name;
+    // the player's own text gets its own direction, so " (you)" stays at the end next to Arabic or Hebrew names
+    const name = document.createElement('span'), bdi = document.createElement('bdi'); name.className = 'name'; bdi.textContent = r.name || '–';
+    name.append(bdi); if (r.you) name.append(' (you)');
     const score = document.createElement('span'); score.className = 'score'; score.textContent = fmt(r.score);
     const det = document.createElement('span'); det.className = 'detail';
     det.textContent = `Pose ${fmt(r.accuracy)} · Stillness ${fmt(r.stability)} · Held ${fmt(r.held)}s` + (r.attempts > 1 ? ` · best of ${r.attempts}` : '');
