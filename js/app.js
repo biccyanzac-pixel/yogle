@@ -30,10 +30,20 @@ function partLabel(f) {
   return `${side} ${PART_NAME[f.slice(2)]}`;
 }
 
+// Screen changes: home <-> archive overlap (JGG.motion.swap, 220 ms); the full-screen camera appears at once so the
+// camera starts straight away, and the screen after it enters. Without the kit it is a plain switch.
+let current = 'home';
 function show(screen) {
-  for (const s of ['home', 'archive', 'play', 'result']) $('screen-' + s).hidden = s !== screen;
+  const m = window.JGG?.motion, from = $('screen-' + current), to = $('screen-' + screen);
+  for (const s of ['home', 'archive', 'play', 'result']) if (s !== current && s !== screen) $('screen-' + s).hidden = true;
   document.querySelector('.top').hidden = screen === 'play';
   document.querySelector('.foot').hidden = screen === 'play';
+  if (from !== to) {
+    if (!m || screen === 'play') { from.hidden = true; to.hidden = false; }
+    else if (current === 'play') { from.hidden = true; m.enter(to); }
+    else m.swap(from, to);
+  }
+  current = screen;
   if (screen !== 'play') window.scrollTo(0, 0);
 }
 
@@ -205,7 +215,7 @@ function loop() {
   updateMeters(m ? m.score : 0, game.session.held / CONFIG.HOLD_SECONDS);
   setStatus(postureMessage(state, m, now));
   if (m && game.session.state === 'holding' && m.score > game.snapBest + 1 && now - game.snapT > 300) takeSnapshot(m.score, now);
-  if (state === 'done' || (now - game.start) / 1000 > MAX_PLAY_SECONDS) finish(false);
+  if (state === 'done' || (now - game.start) / 1000 > MAX_PLAY_SECONDS) finish(false, state === 'done');
 }
 
 async function maybeDowngrade(fps, now) {
@@ -257,7 +267,7 @@ function postureMessage(state, m, now) {
 
 function updateMeters(score, frac) {
   $('match-val').textContent = score ? Math.round(score) + '%' : '–';
-  $('match-bar').style.width = Math.max(0, Math.min(100, score)) + '%';
+  $('match-bar').style.transform = `scaleX(${Math.max(0, Math.min(100, score)) / 100})`;
   $('match-bar').style.background = score >= CONFIG.MATCH_THRESHOLD ? '#4cc26b' : '#f2c14e';
   $('hold-ring').style.strokeDashoffset = String(119.4 * (1 - Math.min(1, frac)));
   $('hold-val').textContent = Math.floor(Math.min(1, frac) * CONFIG.HOLD_SECONDS);
@@ -284,10 +294,22 @@ function stopCamera() {
   $('video').srcObject = null;
 }
 
-function finish(quit) {
+// Hold complete: the ring pulses once (scale 1 -> 1.06 -> 1, 220 ms; an opacity flash under reduce motion) on the
+// paused last frame. The result is recorded and submitted at once; only the switch to the result waits for it.
+function pulseHold() {
+  const el = document.querySelector('.hold');
+  if (!el.animate) return 0;
+  const calm = window.JGG?.motion?.reduced() ?? matchMedia('(prefers-reduced-motion: reduce)').matches;
+  el.animate(calm ? [{ opacity: 1 }, { opacity: 0.55 }, { opacity: 1 }] : [{ transform: 'none' }, { transform: 'scale(1.06)' }, { transform: 'none' }],
+    { duration: 220, easing: calm ? 'ease' : 'cubic-bezier(0.23, 1, 0.32, 1)' });
+  return 220;
+}
+
+function finish(quit, completed = false) {
   if (!game || game.ended) return;
   game.ended = true;
-  stopCamera();
+  const wait = completed ? pulseHold() : 0;
+  if (wait) { cancelAnimationFrame(game.raf); $('video').pause(); } else stopCamera();
   const s = game.session;
   if (!s || !s.samples.length) { show('home'); renderHome(); return; }
   const res = s.result();
@@ -296,7 +318,6 @@ function finish(quit) {
   if (!game.practice && !replay && res.score > 0) store.recordDaily(today, { pose: game.pose.id, score: res.score, grid: res.grid });
   if (replay && res.score > 0) store.recordReplay(game.day, { pose: game.pose.id, score: res.score });
   $('result-title').textContent = game.practice ? `Practice: ${game.pose.name}` : `Yogle #${dayNumber(game.day)}${replay ? ' (replay)' : ''}: ${game.pose.name}`;
-  $('result-score').textContent = res.score;
   $('result-detail').textContent = `Accuracy ${res.accuracy} · Stillness ${res.stability} · Held ${res.held.toFixed(1)} of ${CONFIG.HOLD_SECONDS} s` + (quit && res.completion < 1 ? ' (stopped early)' : '');
   game.share = shareText({ dayNumber: dayNumber(game.day ?? today), replay, poseName: game.pose.name, score: res.score, grid: res.grid, practice: game.practice });
   $('result-grid').textContent = game.share.split('\n').slice(1).join('\n');
@@ -306,7 +327,18 @@ function finish(quit) {
     $('snapshot').src = url; $('snapshot-save').href = url; $('snapshot-wrap').hidden = false;
   } else $('snapshot-wrap').hidden = true;
   prepareSubmit(res, replay);
-  show('result');
+  const g = game;
+  const reveal = () => {
+    if (game !== g) return g.stream?.getTracks().forEach((t) => t.stop());
+    if (wait) stopCamera();
+    show('result');
+    // The score counts up (tap to skip); the detail and grid follow with a 50 ms stagger. The share button,
+    // the name form and the board are already there and never wait for these.
+    const m = window.JGG?.motion;
+    if (m) { $('result-score').textContent = '0'; m.settle($('result-score'), res.score); m.reveal([$('result-detail'), $('result-grid')]); }
+    else $('result-score').textContent = res.score;
+  };
+  wait ? setTimeout(reveal, wait) : reveal();
 }
 
 async function share() {
@@ -421,7 +453,7 @@ async function openArchive() {
 
 async function openArchiveDay(d, pose) {
   Object.assign(archiveSel, { day: d, pose: pose.id });
-  $('archive-day').hidden = false;
+  if ($('archive-day').hidden) window.JGG?.motion ? JGG.motion.enter($('archive-day')) : ($('archive-day').hidden = false);
   $('archive-daynum').textContent = `Yogle #${dayNumber(d)} · ${new Date(d + 'T12:00:00Z').toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}`;
   $('archive-pose').textContent = pose.name;
   $('archive-meta').textContent = `Difficulty ${pose.difficulty.toFixed(1)}/10 · ${cap(pose.focus)} · ${viewText(pose)}` + (pose.advanced ? ' · Advanced' : '');

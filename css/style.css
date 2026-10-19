@@ -50,12 +50,12 @@ main { max-width: 42rem; margin: 0 auto; padding: 1.25rem 16px 24px; }
   min-height: 48px; padding: 0.7rem 1.2rem; border-radius: 10px; font: inherit; font-weight: 650;
   border: 1px solid var(--border); background: var(--surface-2); color: var(--text); cursor: pointer;
   -webkit-user-select: none; user-select: none;
-  transition: transform var(--jgg-t-press, 120ms) var(--jgg-ease-out, cubic-bezier(0.23, 1, 0.32, 1));
+  transition: transform 80ms var(--jgg-ease-out, cubic-bezier(0.23, 1, 0.32, 1)); /* release snaps back */
 }
 @media (hover: hover) and (pointer: fine) {
   .btn:hover:not(:disabled) { filter: brightness(1.08); }
 }
-.btn:active:not(:disabled) { transform: scale(0.97); }
+.btn:active:not(:disabled) { transform: scale(0.97); transition-duration: var(--jgg-t-press, 120ms); }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .btn.small { min-height: 40px; padding: 0.45rem 0.9rem; font-size: 0.92rem; }
 .btn:disabled { opacity: 0.5; cursor: default; }
@@ -102,7 +102,8 @@ html:has(#screen-play:not([hidden])), html:has(#screen-play:not([hidden])) body 
 .meter { flex: 1; color: #fff; }
 .meter-label { display: flex; justify-content: space-between; font-weight: 700; }
 .meter-bar { position: relative; height: 18px; border-radius: 9px; background: rgba(255,255,255,0.25); overflow: hidden; }
-.meter-fill { height: 100%; width: 0; background: #4cc26b; transition: width 120ms linear; }
+/* a live value set every frame: linear, 120 ms, and scaleX so it never re-lays out the HUD */
+.meter-fill { height: 100%; background: #4cc26b; transform: scaleX(0); transform-origin: left; transition: transform var(--jgg-t-press, 120ms) linear; }
 .meter-threshold { position: absolute; top: 0; bottom: 0; width: 3px; background: #fff; }
 .hold { position: relative; width: 64px; height: 64px; }
 .ring { width: 64px; height: 64px; transform: rotate(-90deg); }
