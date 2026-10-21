@@ -30,10 +30,21 @@ function partLabel(f) {
   return `${side} ${PART_NAME[f.slice(2)]}`;
 }
 
+// Screen changes: home <-> archive overlap (JGG.motion.swap, 220 ms); the full-screen camera appears at once so the
+// camera starts straight away, and the screen after it enters. Without the kit it is a plain switch.
+let current = 'home';
 function show(screen) {
-  for (const s of ['home', 'archive', 'play', 'result']) $('screen-' + s).hidden = s !== screen;
+  const m = window.JGG?.motion, from = $('screen-' + current), to = $('screen-' + screen);
+  for (const s of ['home', 'archive', 'play', 'result']) if (s !== current && s !== screen) $('screen-' + s).hidden = true;
   document.querySelector('.top').hidden = screen === 'play';
   document.querySelector('.foot').hidden = screen === 'play';
+  if (from !== to) {
+    if (screen === 'play' && to._jgg) { to._jgg.cancel(); to._jgg = null; to.inert = false; } // "Try again" mid-fade
+    if (!m || screen === 'play') { from.hidden = true; to.hidden = false; }
+    else if (current === 'play') { from.hidden = true; m.enter(to); }
+    else m.swap(from, to);
+  }
+  current = screen;
   if (screen !== 'play') window.scrollTo(0, 0);
 }
 
@@ -117,7 +128,7 @@ async function begin(pose, practice, day = null) {
     frames: [], snap: null, snapBest: -1, snapT: 0, lastHint: '', lastHintT: 0, ended: false, switching: false };
   setStatus('Starting the camera…');
   $('match-threshold').style.left = CONFIG.MATCH_THRESHOLD + '%';
-  miniFigure ??= new Figure3D($('mini-figure'), { autoRotate: false });
+  miniFigure ??= new Figure3D($('mini-figure'), { autoRotate: false, lightCard: true });
   miniFigure.set(pose, LIB.skeleton_landmarks);
   $('mini-name').textContent = `${pose.name} · ${pose.view}`;
   updateMeters(0, 0);
@@ -205,7 +216,7 @@ function loop() {
   updateMeters(m ? m.score : 0, game.session.held / CONFIG.HOLD_SECONDS);
   setStatus(postureMessage(state, m, now));
   if (m && game.session.state === 'holding' && m.score > game.snapBest + 1 && now - game.snapT > 300) takeSnapshot(m.score, now);
-  if (state === 'done' || (now - game.start) / 1000 > MAX_PLAY_SECONDS) finish(false);
+  if (state === 'done' || (now - game.start) / 1000 > MAX_PLAY_SECONDS) finish(false, state === 'done');
 }
 
 async function maybeDowngrade(fps, now) {
@@ -257,7 +268,7 @@ function postureMessage(state, m, now) {
 
 function updateMeters(score, frac) {
   $('match-val').textContent = score ? Math.round(score) + '%' : '–';
-  $('match-bar').style.width = Math.max(0, Math.min(100, score)) + '%';
+  $('match-bar').style.transform = `scaleX(${Math.max(0, Math.min(100, score)) / 100})`;
   $('match-bar').style.background = score >= CONFIG.MATCH_THRESHOLD ? '#4cc26b' : '#f2c14e';
   $('hold-ring').style.strokeDashoffset = String(119.4 * (1 - Math.min(1, frac)));
   $('hold-val').textContent = Math.floor(Math.min(1, frac) * CONFIG.HOLD_SECONDS);
@@ -284,10 +295,28 @@ function stopCamera() {
   $('video').srcObject = null;
 }
 
-function finish(quit) {
+// Hold complete: the result appears at once underneath and the play screen fades off it (JGG.motion.exit, 160 ms)
+// while the ring pulses (1 -> 1.06 -> 1), so success is marked without any wait before the result. Reduce motion,
+// no kit, or a quit/timeout: straight to the result.
+function celebrate() {
+  const m = window.JGG?.motion, play = $('screen-play'), ring = document.querySelector('.hold');
+  if (!m || m.reduced() || !ring.animate) return false;
+  setStatus('Done!');
+  ring.animate([{ transform: 'none' }, { transform: 'scale(1.06)' }, { transform: 'none' }], { duration: 160, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
+  play.hidden = false;
+  play.inert = true; // taps go to the result underneath, never to the fading camera screen
+  const g = game;
+  m.exit(play).then(() => {
+    play.inert = false;
+    if (game === g) stopCamera(); else g.stream?.getTracks().forEach((t) => t.stop()); // a new game may have started
+  });
+  return true;
+}
+
+function finish(quit, completed = false) {
   if (!game || game.ended) return;
   game.ended = true;
-  stopCamera();
+  if (completed) { cancelAnimationFrame(game.raf); $('video').pause(); } else stopCamera();
   const s = game.session;
   if (!s || !s.samples.length) { show('home'); renderHome(); return; }
   const res = s.result();
@@ -296,7 +325,6 @@ function finish(quit) {
   if (!game.practice && !replay && res.score > 0) store.recordDaily(today, { pose: game.pose.id, score: res.score, grid: res.grid });
   if (replay && res.score > 0) store.recordReplay(game.day, { pose: game.pose.id, score: res.score });
   $('result-title').textContent = game.practice ? `Practice: ${game.pose.name}` : `Yogle #${dayNumber(game.day)}${replay ? ' (replay)' : ''}: ${game.pose.name}`;
-  $('result-score').textContent = res.score;
   $('result-detail').textContent = `Accuracy ${res.accuracy} · Stillness ${res.stability} · Held ${res.held.toFixed(1)} of ${CONFIG.HOLD_SECONDS} s` + (quit && res.completion < 1 ? ' (stopped early)' : '');
   game.share = shareText({ dayNumber: dayNumber(game.day ?? today), replay, poseName: game.pose.name, score: res.score, grid: res.grid, practice: game.practice });
   $('result-grid').textContent = game.share.split('\n').slice(1).join('\n');
@@ -306,7 +334,18 @@ function finish(quit) {
     $('snapshot').src = url; $('snapshot-save').href = url; $('snapshot-wrap').hidden = false;
   } else $('snapshot-wrap').hidden = true;
   prepareSubmit(res, replay);
-  show('result');
+  const g = game;
+  const reveal = () => {
+    if (game !== g) return g.stream?.getTracks().forEach((t) => t.stop());
+    show('result');
+    if (!(completed && celebrate())) stopCamera();
+    // The score counts up (tap to skip); the detail and grid follow with a 50 ms stagger. The share button,
+    // the name form and the board are already there and never wait for these.
+    const m = window.JGG?.motion;
+    if (m) { $('result-score').textContent = '0'; m.settle($('result-score'), res.score); m.reveal([$('result-detail'), $('result-grid')]); }
+    else $('result-score').textContent = res.score;
+  };
+  reveal();
 }
 
 async function share() {
@@ -318,7 +357,7 @@ async function share() {
 }
 
 // ---------- leaderboard ----------
-const fmt = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+const fmt = (n) => (typeof n !== 'number' || !Number.isFinite(n) ? '–' : Number.isInteger(n) ? String(n) : n.toFixed(1));
 
 function renderBoard(listEl, msgEl, data, emptyText) {
   listEl.replaceChildren();
@@ -330,7 +369,9 @@ function renderBoard(listEl, msgEl, data, emptyText) {
     if (r.gap) { li.className = 'gap'; li.textContent = '…'; listEl.append(li); continue; }
     if (r.you) li.className = 'me';
     const rank = document.createElement('span'); rank.className = 'rank'; rank.textContent = r.rank;
-    const name = document.createElement('span'); name.className = 'name'; name.textContent = r.you ? `${r.name} (you)` : r.name;
+    // the player's own text gets its own direction, so " (you)" stays at the end next to Arabic or Hebrew names
+    const name = document.createElement('span'), bdi = document.createElement('bdi'); name.className = 'name'; bdi.textContent = r.name || '–';
+    name.append(bdi); if (r.you) name.append(' (you)');
     const score = document.createElement('span'); score.className = 'score'; score.textContent = fmt(r.score);
     const det = document.createElement('span'); det.className = 'detail';
     det.textContent = `Pose ${fmt(r.accuracy)} · Stillness ${fmt(r.stability)} · Held ${fmt(r.held)}s` + (r.attempts > 1 ? ` · best of ${r.attempts}` : '');
@@ -421,7 +462,7 @@ async function openArchive() {
 
 async function openArchiveDay(d, pose) {
   Object.assign(archiveSel, { day: d, pose: pose.id });
-  $('archive-day').hidden = false;
+  if ($('archive-day').hidden) window.JGG?.motion ? JGG.motion.enter($('archive-day')) : ($('archive-day').hidden = false);
   $('archive-daynum').textContent = `Yogle #${dayNumber(d)} · ${new Date(d + 'T12:00:00Z').toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}`;
   $('archive-pose').textContent = pose.name;
   $('archive-meta').textContent = `Difficulty ${pose.difficulty.toFixed(1)}/10 · ${cap(pose.focus)} · ${viewText(pose)}` + (pose.advanced ? ' · Advanced' : '');
